@@ -8,11 +8,10 @@ const path = require("path");
 const Shopify = require("shopify-api-node");
 const Ftp = require("ftp");
 const axios = require("axios");
-const port = 9000;
 const FormData = require("form-data");
 
 const ftpClient = new Ftp();
-let isJobRunning = false; 
+let isJobRunning = false; // Lock mechanism
 let processedFilesByMinute = new Map(); // Track processed files for each minute
 let uniqueFilename;
 
@@ -42,10 +41,11 @@ const db = require("./app/models");
 db.sequelize.sync();
 
 // simple route
-app.get("/api", (_req, res) => {
+app.get("/api", (req, res) => {
   res.json({ message: "Welcome to Backend" });
 });
 
+// routes
 require("./app/routes/upload.route")(app);
 require("./app/routes/auth.route")(app);
 require("./app/routes/ftp.route")(app);
@@ -60,6 +60,7 @@ function deleteFileFromFTP(remoteFileName) {
       console.error("Error deleting file:", err);
     } else {
       console.log("File deleted successfully");
+      // Call uploadFile function after 5 seconds
       setTimeout(() => {
         uploadFile(remoteFileName);
         isJobRunning = false;
@@ -99,6 +100,8 @@ async function uploadFile(remoteFileName) {
         },
       }
     );
+
+    // Validate response before assuming upload success
     if (response.data) {
       console.log("File uploaded successfully to API:", response.data);
       // Update uploadedMinutes set after successful upload
@@ -115,8 +118,9 @@ async function uploadFile(remoteFileName) {
 }
 
 function getCurrentMinute() {
+  // Get the current date and time
   const now = new Date();
-
+  // Extract the minute part
   const minute = now.getMinutes();
   console.log(`Current minute: ${minute}`);
   return minute;
@@ -218,7 +222,7 @@ schedule.scheduleJob("*/5 * * * *", async function () {
 
       // Keep-alive mechanism
       setInterval(() => {
-        ftpClient.list('/', (err, _list) => {
+        ftpClient.list('/', (err, list) => {
           if (err) {
             console.error('Error during keep-alive request:', err);
           } else {
@@ -327,7 +331,7 @@ async function checkIfExist(code) {
   do {
     const products = await shopify.product.list(params);
     // console.log(JSON.stringify(products[0]))
-    products.forEach(function (product, _index) {
+    products.forEach(function (product, index) {
       // console.log(product.variants[0]?.sku)
       if (product.variants[0]?.sku == code) {
         console.log(product.variants[0]?.sku);
@@ -456,320 +460,151 @@ schedule.scheduleJob("*/7 * * * *", function () {
 
 
               
-                    // for (let i = 0; i < results.length; i++) {
-                    //     try {
-                    //     let pid = await checkIfExist(results[i].CODE);
-                    //         if (pid) {
-                    //             shopify.product
-                    //             .update(pid, {
-                    //                 title: results[i].DESC,
-                    //                 variants: [
-                    //                 {
-                    //                     barcode: results[i].BARCODE,
-                    //                     inventory_quantity: parseInt(results[i].TOTALINSTK),
-                    //                     price: parseFloat(results[i].SELLVAT1.trim()),
-                    //                     sku: results[i].CODE,
-                    //                 },
-                    //                 ],
-                    //                 status: results[i].STATCODE == "A" ? "active" : "draft",
-                    //             })
-                    //             .then((value) => {
-                                    
-                    //                 console.log(JSON.stringify(value));
-            
-                    //                 updateVariantInventoryManagement(pid);
-                                    
-                    //                 let data = JSON.stringify({
-                    //                 metafield: {
-                    //                     namespace: "custom",
-                    //                     key: "landfrtcd",
-                    //                     value:
-                    //                     results[i].LANDFRTCD == 1
-                    //                         ? "Standard"
-                    //                         : results[i].LANDFRTCD == 2
-                    //                         ? "Large"
-                    //                         : "Bulk",
-                    //                     type: "single_line_text_field",
-                    //                 },
-                    //                 });
-            
-                    //                 let config = {
-                    //                 method: "post",
-                    //                 url: `https://621f27ad49cc7a915cb964009fd68e40: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@cullinan-and-sons-ltd.myshopify.com/admin/api/2024-04/products/${pid}/metafields.json`,
-                    //                 headers: {
-                    //                     "Content-Type": "application/json",
-                    //                 },
-                    //                 data: data,
-                    //                 };
-            
-                    //                 axios
-                    //                 .request(config)
-                    //                 .then((response) => {
-                    //                     console.log(
-                    //                     "meta update",
-                    //                     JSON.stringify(response.data)
-                    //                     );
-                    //                 })
-                    //                 .catch((error) => {
-                    //                     console.log(error);
-                    //                 });
-                    //             });
-                    //             logErrorToFile(
-                    //                 "Success: Product Updated with SKU: " + results[i].CODE , uniqueFilename
-                    //             );
-                    //         } else {
-                    //             shopify.product
-                    //             .create({
-                    //                 title: results[i].DESC,
-                    //                 metafields_global_title_tag:
-                    //                 results[i].LANDFRTCD == 1
-                    //                     ? "Standard"
-                    //                     : results[i].LANDFRTCD == 2
-                    //                     ? "Large"
-                    //                     : "Bulk",
-                    //                 variants: [
-                    //                 {
-                    //                     barcode: results[i].BARCODE,
-                    //                     inventory_quantity: parseInt(results[i].TOTALINSTK),
-                    //                     price: parseFloat(results[i].SELLVAT1.trim()),
-                    //                     sku: results[i].CODE,
-                    //                 },
-                    //                 ],
-                    //                 status: results[i].STATCODE == "A" ? "active" : "draft",
-                    //             })
-                    //             .then((value) => {
-                    //                 console.log(JSON.stringify(value));
-            
-                    //                 let data = JSON.stringify({
-                    //                 metafield: {
-                    //                     namespace: "custom",
-                    //                     key: "landfrtcd",
-                    //                     value:
-                    //                     results[i].LANDFRTCD == 1
-                    //                         ? "Standard"
-                    //                         : results[i].LANDFRTCD == 2
-                    //                         ? "Large"
-                    //                         : "Bulk",
-                    //                     type: "single_line_text_field",
-                    //                 },
-                    //                 });
-            
-                    //                 let config1 = {
-                    //                 method: "post",
-                    //                 url: `https://621f27ad49cc7a915cb964009fd68e40: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@cullinan-and-sons-ltd.myshopify.com/admin/api/2024-04/products/${value.id}/metafields.json`,
-                    //                 headers: {
-                    //                     "Content-Type": "application/json",
-                    //                 },
-                    //                 data: data,
-                    //                 };
-                                    
-                    //                 axios
-                    //                 .request(config1)
-                    //                 .then((response) => {
-                    //                     console.log(
-                    //                     "meta add",
-                    //                     JSON.stringify(response.data)
-                    //                     );
-                    //                 })
-                    //                 .catch((error) => {
-                    //                     console.log(error);
-                    //                 });
-                                    
-                    //                 updateVariantInventoryManagement(value.id);
-                    //             });
-                    //             logErrorToFile(
-                    //                 "Success: New Product Created with SKU : " + results[i].CODE , uniqueFilename
-                    //             );
-                    //         }
-                    //         if(i==results.length-1){
-                    //             let config = {
-                    //             method: "get",
-                    //             url: `http://localhost:9000/api/upload/put/${response.data[0].id}`,
-                    //             };
-                    //             axios
-                    //             .request(config)
-                    //             .then((response1) => {
-                    //                 console.log(JSON.stringify(response1.data));
-                    //             })
-                    //             .catch((error) => {
-                    //                 console.log(error);
-                    //             });
-                                
-                    //         }
-                    //     } catch (e) {
-                    //           logErrorToFile("ERROR: " + e , uniqueFilename);
-                    //         await sleep(15000);
-                    //   }
-                    // }
                     for (let i = 0; i < results.length; i++) {
-                      try {
-                          let pid = await checkIfExist(results[i].CODE);
-                  
-                          // Determine tag value based on LANDFRTCD
-                          let datavalue = 
-                            results[i].TAGS == 3
-                            ? "Standard"
-                            : results[i].TAGS == 1
-                            ? "Large"
-                            : results[i].TAGS == 2
-                            ? "Bulk"
-                            : "Unknown";
-                          
-                  
-                          if (pid) {
-                              shopify.product
-                                  .update(pid, {
-                                      title: results[i].DESC,
-                                      variants: [
-                                          {
-                                              barcode: results[i].BARCODE,
-                                              inventory_quantity: parseInt(results[i].TOTALINSTK),
-                                              price: parseFloat(results[i].SELLVAT1.trim()),
-                                              sku: results[i].CODE,
-                                          },
-                                      ],
-                                      tags: datavalue,
-                                      status: results[i].STATCODE == "A" ? "active" : "draft",
-                                  })
-                                  .then((value) => {
-                                      console.log(JSON.stringify(value));
-                                      updateVariantInventoryManagement(pid);
-                                  });
-                              logErrorToFile(
-                                  "Success: Product Updated with SKU: " + results[i].CODE,
-                                  uniqueFilename
-                              );
-                          } else {
-                              // Product does not exist, create a new one
-                              shopify.product
-                                  .create({
-                                      title: results[i].DESC,
-                                      variants: [
-                                          {
-                                              barcode: results[i].BARCODE,
-                                              inventory_quantity: parseInt(results[i].TOTALINSTK),
-                                              price: parseFloat(results[i].SELLVAT1.trim()),
-                                              sku: results[i].CODE,
-                                          },
-                                      ],
-                                      tags: datavalue, 
-                                      status: results[i].STATCODE == "A" ? "active" : "draft",
-                                  })
-                                  .then((value) => {
-                                      console.log(JSON.stringify(value));
-                                      updateVariantInventoryManagement(value.id);
-                                  });
-                              logErrorToFile(
-                                  "Success: New Product Created with SKU: " + results[i].CODE,
-                                  uniqueFilename
-                              );
-                          }
-                  
-                          if (i == results.length - 1) {
-                              let config = {
-                                  method: "get",
-                                  url: `http://localhost:9000/api/upload/put/${response.data[0].id}`,
-                              };
-                              axios
-                                  .request(config)
-                                  .then((response1) => {
-                                      console.log(JSON.stringify(response1.data));
-                                  })
-                                  .catch((error) => {
-                                      console.log(error);
-                                  });
-                          }
-                      } catch (e) {
-                          logErrorToFile("ERROR: " + e, uniqueFilename);
-                          await sleep(15000);
+                        try {
+                        let pid = await checkIfExist(results[i].CODE);
+                            if (pid) {
+                                shopify.product
+                                .update(pid, {
+                                    title: results[i].DESC,
+                                    variants: [
+                                    {
+                                        barcode: results[i].BARCODE,
+                                        inventory_quantity: parseInt(results[i].TOTALINSTK),
+                                        price: parseFloat(results[i].SELLVAT1.trim()),
+                                        sku: results[i].CODE,
+                                    },
+                                    ],
+                                    status: results[i].STATCODE == "A" ? "active" : "draft",
+                                })
+                                .then((value) => {
+                                    
+                                    console.log(JSON.stringify(value));
+            
+                                    updateVariantInventoryManagement(pid);
+                                    
+                                    let data = JSON.stringify({
+                                    metafield: {
+                                        namespace: "custom",
+                                        key: "landfrtcd",
+                                        value:
+                                        results[i].LANDFRTCD == 1
+                                            ? "Standard"
+                                            : results[i].LANDFRTCD == 2
+                                            ? "Large"
+                                            : "Bulk",
+                                        type: "single_line_text_field",
+                                    },
+                                    });
+            
+                                    let config = {
+                                    method: "post",
+                                    url: `https://621f27ad49cc7a915cb964009fd68e40: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@cullinan-and-sons-ltd.myshopify.com/admin/api/2024-04/products/${pid}/metafields.json`,
+                                    headers: {
+                                        "Content-Type": "application/json",
+                                    },
+                                    data: data,
+                                    };
+            
+                                    axios
+                                    .request(config)
+                                    .then((response) => {
+                                        console.log(
+                                        "meta update",
+                                        JSON.stringify(response.data)
+                                        );
+                                    })
+                                    .catch((error) => {
+                                        console.log(error);
+                                    });
+                                });
+                                logErrorToFile(
+                                    "Success: Product Updated with SKU: " + results[i].CODE , uniqueFilename
+                                );
+                            } else {
+                                shopify.product
+                                .create({
+                                    title: results[i].DESC,
+                                    metafields_global_title_tag:
+                                    results[i].LANDFRTCD == 1
+                                        ? "Standard"
+                                        : results[i].LANDFRTCD == 2
+                                        ? "Large"
+                                        : "Bulk",
+                                    variants: [
+                                    {
+                                        barcode: results[i].BARCODE,
+                                        inventory_quantity: parseInt(results[i].TOTALINSTK),
+                                        price: parseFloat(results[i].SELLVAT1.trim()),
+                                        sku: results[i].CODE,
+                                    },
+                                    ],
+                                    status: results[i].STATCODE == "A" ? "active" : "draft",
+                                })
+                                .then((value) => {
+                                    console.log(JSON.stringify(value));
+            
+                                    let data = JSON.stringify({
+                                    metafield: {
+                                        namespace: "custom",
+                                        key: "landfrtcd",
+                                        value:
+                                        results[i].LANDFRTCD == 1
+                                            ? "Standard"
+                                            : results[i].LANDFRTCD == 2
+                                            ? "Large"
+                                            : "Bulk",
+                                        type: "single_line_text_field",
+                                    },
+                                    });
+            
+                                    let config1 = {
+                                    method: "post",
+                                    url: `https://621f27ad49cc7a915cb964009fd68e40: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@cullinan-and-sons-ltd.myshopify.com/admin/api/2024-04/products/${value.id}/metafields.json`,
+                                    headers: {
+                                        "Content-Type": "application/json",
+                                    },
+                                    data: data,
+                                    };
+                                    
+                                    axios
+                                    .request(config1)
+                                    .then((response) => {
+                                        console.log(
+                                        "meta add",
+                                        JSON.stringify(response.data)
+                                        );
+                                    })
+                                    .catch((error) => {
+                                        console.log(error);
+                                    });
+                                    
+                                    updateVariantInventoryManagement(value.id);
+                                });
+                                logErrorToFile(
+                                    "Success: New Product Created with SKU : " + results[i].CODE , uniqueFilename
+                                );
+                            }
+                            if(i==results.length-1){
+                                let config = {
+                                method: "get",
+                                url: `http://localhost:9000/api/upload/put/${response.data[0].id}`,
+                                };
+                                axios
+                                .request(config)
+                                .then((response1) => {
+                                    console.log(JSON.stringify(response1.data));
+                                })
+                                .catch((error) => {
+                                    console.log(error);
+                                });
+                                
+                            }
+                        } catch (e) {
+                              logErrorToFile("ERROR: " + e , uniqueFilename);
+                            await sleep(15000);
                       }
-                  }
-                  
-                    
-                  //   for (let i = 0; i < results.length; i++) {
-                  //     try {
-                  //         let pid = await checkIfExist(results[i].CODE);
-                  
-                  //         // Determine tag based on LANDFRTCD value
-                  //         let landfrtTag =
-                  //         results[i].LANDFRTCD == 3
-                  //         ? "Standard"
-                  //         : results[i].LANDFRTCD == 1
-                  //         ? "Large"
-                  //         : results[i].LANDFRTCD == 2
-                  //         ? "Bulk"
-                  //         : "Unknown";
-                  
-                  //         if (pid) {
-                  //             // Fetch existing product to preserve tags
-                  //             const existingProduct = await shopify.product.get(pid);
-                  
-                  //             // Combine existing tags with the new one, ensuring no duplicates
-                  //             let updatedTags = [...new Set([...existingProduct.tags.split(", "), landfrtTag])];
-                  
-                  //             // Update the product
-                  //             shopify.product
-                  //                 .update(pid, {
-                  //                     title: results[i].DESC,
-                  //                     variants: [
-                  //                         {
-                  //                             barcode: results[i].BARCODE,
-                  //                             inventory_quantity: parseInt(results[i].TOTALINSTK),
-                  //                             price: parseFloat(results[i].SELLVAT1.trim()),
-                  //                             sku: results[i].CODE,
-                  //                         },
-                  //                     ],
-                  //                     status: results[i].STATCODE == "A" ? "active" : "draft",
-                  //                     tags: updatedTags.join(", "), // Update tags
-                  //                 })
-                  //                 .then((value) => {
-                  //                     console.log(JSON.stringify(value));
-                  //                     updateVariantInventoryManagement(pid);
-                  //                 });
-                  //             logErrorToFile("Success: Product Updated with SKU: " + results[i].CODE, uniqueFilename);
-                  //         } else {
-                  //             // Create a new product with the appropriate tag
-                  //             shopify.product
-                  //                 .create({
-                  //                     title: results[i].DESC,
-                  //                     tags: landfrtTag, // Assign tag during creation
-                  //                     variants: [
-                  //                         {
-                  //                             barcode: results[i].BARCODE,
-                  //                             inventory_quantity: parseInt(results[i].TOTALINSTK),
-                  //                             price: parseFloat(results[i].SELLVAT1.trim()),
-                  //                             sku: results[i].CODE,
-                  //                         },
-                  //                     ],
-                  //                     status: results[i].STATCODE == "A" ? "active" : "draft",
-                  //                 })
-                  //                 .then((value) => {
-                  //                     console.log(JSON.stringify(value));
-                  //                     updateVariantInventoryManagement(value.id);
-                  //                 });
-                  //             logErrorToFile("Success: New Product Created with SKU : " + results[i].CODE, uniqueFilename);
-                  //         }
-                  
-                  //         if (i == results.length - 1) {
-                  //             let config = {
-                  //                 method: "get",
-                  //                 url: `http://localhost:9000/api/upload/put/${response.data[0].id}`,
-                  //             };
-                  //             axios
-                  //                 .request(config)
-                  //                 .then((response1) => {
-                  //                     console.log(JSON.stringify(response1.data));
-                  //                 })
-                  //                 .catch((error) => {
-                  //                     console.log(error);
-                  //                 });
-                  //         }
-                  //     } catch (e) {
-                  //         logErrorToFile("ERROR: " + e, uniqueFilename);
-                  //         await sleep(15000);
-                  //     }
-                  // }
-                  
+                    }
             }
         });
       }
@@ -789,7 +624,7 @@ process.on("uncaughtException", function (err) {
   console.log("Restarting...");
 });
 // set port, listen for requests
-const PORT = 9000;
+const PORT = process.env.PORT || 9000;
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}.`);
 });
