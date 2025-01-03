@@ -789,7 +789,7 @@ process.on("uncaughtException", function (err) {
   console.log("Restarting...");
 });
 // set port, listen for requests
-const PORT = process.env.PORT;
+const PORT = 9000;
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}.`);
 });
